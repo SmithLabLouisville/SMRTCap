@@ -1,0 +1,56 @@
+#!/usr/bin/perl -w
+use strict;
+##################################################################
+### PROGRAM: findHIVReferenceID                                 ##
+### AUTHOR:  Eric Rouchka, University of Louisville             ##
+###          Copyright, University of Louisville                ##
+### DATE:    4/23/2025                                          ##
+### LAST MODIFIIED: 4/23/2025                                   ##
+### GITHUB:                                                     ##
+### LICENSE:                                                    ##
+##################################################################
+#
+############################################################################
+### USAGE:                                                                ##
+###    findHIVReferenceID <SAMFN>                                         ##
+###                                                                       ##
+### finds the most likely reference sequence based on the most frequently ##
+### occurring target in the sam file                                      ## 
+############################################################################
+#
+my $ARGC = @ARGV;
+if($ARGC != 1) {
+   die "USAGE: findHIVReference <SAMFN>\n";
+}
+
+my $seqFN = $ARGV[0];
+my %refCntHASH;
+
+open(INFILE, $seqFN) || die("Error opening $seqFN for reading\n");
+while(defined(my $line = <INFILE>)) { 
+   if($line =~ /^\@/) { 
+      ## SKIP -- HEADER
+   }
+   else {
+      my @wds = split(/\t/, $line);
+      my $currRef = $wds[2];
+      if(!defined($refCntHASH{$currRef})) { 
+         $refCntHASH{$currRef} = 1;
+      }
+      else {
+         $refCntHASH{$currRef}++;
+      }
+   }
+}
+close(INFILE);
+
+####################################################
+## Print out the references and the number of     ##
+## occurrences sorted from most frequent to least ##
+####################################################
+my @k = sort{$refCntHASH{$b} <=> $refCntHASH{$a}} (keys(%refCntHASH));
+my $numK = @k;
+for(my $i = 0; $i < $numK; $i++) { 
+    print "$k[$i]\t$refCntHASH{$k[$i]}\n";
+}
+

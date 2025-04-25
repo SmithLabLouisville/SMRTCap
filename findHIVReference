@@ -1,0 +1,170 @@
+#!/usr/bin/perl -w
+use strict;
+
+#################################################################
+## PROGRAM: findHIVReference                                   ##
+## AUTHOR:  Eric Rouchka, University of Louisville             ##
+##          Copyright, University of Louisville                ##
+## DATE:    4/23/2025                                          ##
+## LAST MODIFIIED: 4/23/2025                                   ##
+## GITHUB:                                                     ##
+## LICENSE:                                                    ##
+#################################################################
+
+###########################################################################
+## USAGE:                                                                ##
+##    findHIVReferenceID <REFERENCE FASTA> <QUERY FASTQ|BAM|SAM>         ##
+##                                                                       ##
+## finds the most likely reference sequence based on the most frequently ##
+## occurring target in the sam file                                      ##
+## REQUIRES: samtools and minimap2                                       ##
+###########################################################################
+
+## Exit errors
+##    -1: incorrect number of command line parameters
+##    -2: reference file does not exist
+##    -3: query file does not exist
+
+checkUsage(\@ARGV);
+my $refFN   = $ARGV[0];
+my $queryFN = $ARGV[1];
+my $trimmedQueryFN = trimQuery($queryFN);
+my $alignedALLFN = "alignedALL.sam";
+my $alignedPrimaryFN = "primary.sam";
+my $bestRef = "";
+alignToReference($refFN, $trimmedQueryFN, $alignedALLFN);
+reduceToUniquelyMapped($alignedALLFN, $alignedPrimaryFN);
+$bestRef = findBestReference($alignedPrimaryFN);
+
+#---------------------------------------------------------------------------
+sub checkUsage {
+   my($aREF) = @_;
+
+   my @argv = @$aREF;
+   my $numArgs = @argv;
+   if($numArgs != 2) { 
+      print STDERR "USAGE: findHIVReference <REF FASTA FILE> <QUERY FASTQ|BAM|SAM FILE>\n";
+      exit(-1);
+   }
+   my $refFN = $argv[0];
+   my $queryFN = $argv[1];
+   if(!(-e $refFN)) { 
+      print STDERR "Number of command line parameters ok\n";
+      print STDERR "--> $refFN does not exist... exiting\n";
+      exit(-2);
+   }
+   if(!(-e $queryFN)) { 
+      print STDERR "Number of command line parameters ok\n";
+      print STDERR "--> $queryFN does not exist... exiting\n";
+      exit(-3);
+   }
+   my $cmdArgs = join(" ", @argv);
+   print "COMMAND LINE: findHIVReference $cmdArgs\n";
+}
+#---------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------
+sub trimQuery {
+   my($qFN) = @_;
+   my @wds = split(/\./, $qFN);
+   my $ext = $wds[-1]; 
+   $ext = lc($ext);
+   if(($ext eq "bam") || ($ext eq "sam")) { 
+      ## convert to fasta first
+      $wds[-1] = "fa";
+      my $fastaFN  = join(".", @wds);
+      my $cmd = "samtools fastq $qFN > $fastaFN";
+      print STDERR "running $cmd\n";
+      my $errVal = system($cmd);
+      if($errVal != 0) { 
+         die("Error in $cmd; value of $errVal returned");
+      }
+   }
+   $qFN  = join(".", @wds);
+
+   my $outFN = $qFN . ".trimmed";
+   my $cmd = "seqtk trimfq -b 60 -e 60 $qFN > $outFN";
+   print STDERR "running $cmd\n";
+   my $errVal = system($cmd);
+   if($errVal != 0) { 
+      die("Error in $cmd; value of $errVal returned");
+   }
+   return($outFN);
+}
+#---------------------------------------------------------------------------
+   
+#--------------------------------------------------------------------------
+sub alignToReference {
+   my($rFN, $qFN, $aFN) = @_;
+
+   my $cmd = "minimap2 -t 16 -m 0 -Y -ax map-pb $rFN $qFN > $aFN";
+   print STDERR "running $cmd\n";
+   my $errVal = system($cmd);
+   if($errVal != 0) { 
+      die("Error in $cmd; value of $errVal returned");
+   }
+}
+#---------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------
+sub reduceToUniquelyMapped {
+   my($allFN, $uniqueFN) = @_;
+
+   ## -F masks out reads with 256 (secondary) and 4 (unmapped) flags
+   my $cmd = "samtools view -h -S -F 260 $allFN > $uniqueFN";
+   print STDERR "running $cmd\n";
+   my $errVal = system($cmd);
+   if($errVal != 0) { 
+      die("Error in $cmd; value of $errVal returned");
+   }
+}
+
+#---------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------
+sub findBestReference {
+   my($uniqueFN) = @_;
+
+   my %refHASH;
+   open(SAMFILE, $uniqueFN) || die("error opening $uniqueFN for reading");
+
+   ## Read the header lines
+   my $line = <SAMFILE>;
+   while(defined($line) && ($line =~ /^\@/)) { 
+      $line = <SAMFILE>;
+   }
+
+   my $numFound = 0;
+   while(defined($line)) { 
+      $numFound++;
+      my @wds = split(/\t/, $line);
+      my $currRefID = $wds[2];
+      if(!defined($refHASH{$currRefID})) { 
+         $refHASH{$currRefID} = 1;
+      }
+      else {
+         $refHASH{$currRefID}++;
+      }
+      $line = <SAMFILE>;
+   }
+
+
+   my @k = sort {$refHASH{$b} <=> $refHASH{$a}} keys(%refHASH);
+   my $numK = @k;
+   print "-----------------------------------\n";
+   print "--       HIV mapping summary     --\n";
+   print "-----------------------------------\n\n";
+   print "$numFound HIV sequences found\n\n";
+   my $mostLikely = $k[0];
+   if(!defined($mostLikely)) {
+      $mostLikely = "*** NO MAPPINGS FOUND ***";
+   }
+   print "Most likely reference: $mostLikely\n\n";
+   print "Most represented references\n";
+   print "===========================\n";
+   for(my $i = 0; $i < $numK; $i++) { 
+      print "$k[$i]\t$refHASH{$k[$i]}\n";
+   }
+   return($k[0]);
+}
+#---------------------------------------------------------------------------
