@@ -1,0 +1,2 @@
+# SMRTCap
+SMRTCap analysis pipeline
