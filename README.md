@@ -5,7 +5,7 @@ SMRTcap is a PacBio long read sequencing protocol for analyzing viral integratio
 Sadri G, Nadakal ST, Sachs D, Lauer W, Kos J, Singh P, Elliott EM, Kaiser CM, Ford EE, Richardson N, Hudson E, Linden N, Powell J, Warburton P, Soto J, Emery M, Deikus G, Lee GQ, Lamers S, Reynolds SJ, Galiwango RM, Prodger JL, Tomusange S, Kityamuweesi T, Han T, Jones RB, Tobian AAR, Engelman A, Sebra R, Morgello S, Redd AD, Rouchka E, Smith ML. (2025) **Development and validation of HIV SMRTcap for the characterization of HIV reservoirs across tissues and subtypes**. (under review)
 
 # SMRTcap analysis pipeline
-The SMRTcap pipeline is a combination of bash, R, perl, and python scripts designed to analyze long sequencing reads for viral integrations into host genomes.  There are three main driver programs: 1. hiv_insert.sh which finds integration sites and flanking host sequences; 2. R which annotates the integrated virus according to where in the host genome (intergenic or specific genic regions); and 3. findHIVSIVGeneREgionsV9.5 which annotates the completeness in terms of each of the viral genes for the integration.
+The SMRTcap pipeline is a combination of bash, R, perl, and python scripts designed to analyze long sequencing reads for viral integrations into host genomes.  There are three main driver programs: 1. hiv_insert.sh which finds integration sites and flanking host sequences; 2. BMS.Insertion.v3.3.ECR.R which annotates the integrated virus according to where in the host genome (intergenic or specific genic regions); and 3. findHIVSIVGeneREgionsV9.5 which annotates the completeness in terms of each of the viral genes for the integration.
 
 ## Requirements
 - samtools    (tested on v1.16.1)
